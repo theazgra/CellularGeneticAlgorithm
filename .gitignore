@@ -33,3 +33,11 @@
 
 # Build folders
 build/
+obj/
+Debug/
+debug/
+Release/
+release/
+
+.vs/
+*.csproj.user
