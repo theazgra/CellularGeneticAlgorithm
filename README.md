@@ -5,6 +5,12 @@
 - [Interesting website](http://neo.lcc.uma.es/cEA-web/index.htm)
 - [Genetic algorithm process diagram](http://neo.lcc.uma.es/cEA-web/introduction.htm)
 
+## Cellular GA Idea
+- Lets say, that goal of our cells is to reach white color `RGB (255,255,255)`
+- Chromozomes are triplet of R, G, and B values ranging from 0 to 255.
+- Fitness value of cell is a sum of its chromozomes
+- Reproduction choose is `Intermediate recombination`
+
 
 ## Pseudocode of simple C-EA
 
