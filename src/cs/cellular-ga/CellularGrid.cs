@@ -153,7 +153,7 @@ namespace cellular_ga
             _currentPopulation = Operators.Replace(RowCount, ColCount, _currentPopulation, newPopulation, ReplaceMethod);
         }
 
-        public async Task MultiThreadedEvolve(int maxGenerationCount, bool asynchronous = false, int? threadCount = null)
+        public async Task MultiThreadedEvolve(int maxGenerationCount, int? threadCount = null)
         {
             string format = "Generation: {0}; Score: {1}; Iteration time: {2} ms.";
 
@@ -165,16 +165,7 @@ namespace cellular_ga
             for (int generation = 1; generation <= maxGenerationCount; generation++)
             {
                 s.Start();
-                if (asynchronous)
-                {
-                    //AsynchronousEvolutionStep();
-                    throw new NotImplementedException();
-                }
-                else
-                {
-                    await MultiThreadSynchronousEvolutionStep(threadCount);
-                    //SynchronousEvolutionStep();
-                }
+                await MultiThreadEvolutionStep(threadCount);
                 s.Stop();
 
                 for (int i = 0; i < _currentPopulation.Length; i++)
@@ -196,7 +187,7 @@ namespace cellular_ga
                 }
             }
         }
-        
+
         private Cell[] WorkerSynchronousEvolutionStep(int fromRow, int toRow)
         {
             AbstractGenerator randomGenerator = new MT19937Generator();
@@ -233,7 +224,7 @@ namespace cellular_ga
             return newPopulation;
         }
 
-        public async Task MultiThreadSynchronousEvolutionStep(int? threadCount = null)
+        public async Task MultiThreadEvolutionStep(int? threadCount = null)
         {
             int workerCount = Environment.ProcessorCount;
             if (threadCount.HasValue)
@@ -250,12 +241,13 @@ namespace cellular_ga
 
                 workers[workerId] = Task<Cell[]>.Factory.StartNew(() => WorkerSynchronousEvolutionStep(workerRowFrom, workerRowTo));
             }
+
             var taskResult = await Task.WhenAll(workers);
 
             Cell[] newPopulation = new Cell[RowCount * ColCount];
 
             int offset = 0;
-            
+
             for (int workerId = 0; workerId < workerCount; workerId++)
             {
                 int copyLen = taskResult[workerId].Length;
