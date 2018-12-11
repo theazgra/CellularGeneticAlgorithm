@@ -8,7 +8,7 @@ namespace cellular_ga
 {
     class Operators
     {
-        static AbstractGenerator randomGenerator = new MT19937Generator();
+        static AbstractGenerator defaultGenerator = new MT19937Generator();
 
         public static Cell[] Replace(int rowCount, int colCount, Cell[] currentPopulation, Cell[] newPopulation, ReplaceType replaceType)
         {
@@ -91,8 +91,11 @@ namespace cellular_ga
             return result;
         }
 
-        public static Cell Reproduction(int x, int y, Tuple<Cell, Cell> parents)
+        public static Cell Reproduction(int x, int y, Tuple<Cell, Cell> parents, AbstractGenerator randomGenerator = null)
         {
+            if (randomGenerator == null)
+                randomGenerator = defaultGenerator;
+            
             byte TakeMax(byte d1, byte d2) => d1 > d2 ? d1 : d2;
 
             (Cell parentA, Cell parentB) = parents;
