@@ -38,6 +38,7 @@ Debug/
 debug/
 Release/
 release/
+packages/
 
 .vs/
 *.csproj.user

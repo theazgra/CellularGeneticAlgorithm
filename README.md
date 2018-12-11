@@ -9,7 +9,7 @@
 - Lets say, that goal of our cells is to reach white color `RGB (255,255,255)`
 - Chromozomes are triplet of R, G, and B values ranging from 0 to 255.
 - Fitness value of cell is a sum of its chromozomes
-- Reproduction choose is `Intermediate recombination`
+- Reproduction `Max of values`  ~~`Intermediate recombination`~~
 
 
 ## Pseudocode of simple C-EA
