@@ -70,16 +70,28 @@ double CellularGrid::get_score_of_generation() const
     return result;
 }
 
-void CellularGrid::dump_current_population_to_image(const std::string &folder, uint generation)
+void CellularGrid::dump_current_population_to_image(const std::string &folder, uint generation, bool bw)
 {
-    cimg_library::CImg<uchar> gridImage = create_color_image(colCount, rowCount);
+    cimg_library::CImg<uchar> gridImage;
+    if (bw)
+        gridImage = create_grayscale_image(colCount, rowCount);
+    else
+        gridImage = create_color_image(colCount, rowCount);
 
     for (uint row = 0; row < rowCount; row++)
     {
         for (uint col = 0; col < colCount; col++)
         {
             Cell cell = at(row, col);
-            set_pixel(gridImage, row, col, RgbPixel(cell.R, cell.G, cell.B));
+            if (bw)
+            {
+                uchar normalized = (uchar)(float((int)cell.R + (int)cell.G + (int)cell.B) / 255.0);
+                set_pixel(gridImage, row, col, normalized);
+            }
+            else
+            {
+                set_pixel(gridImage, row, col, RgbPixel(cell.R, cell.G, cell.B));
+            }
         }
     }
 

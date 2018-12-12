@@ -33,7 +33,7 @@ public:
   void initialize(const NeighborhoodType neighborhoodType, const PopulationMergeType mergeMethod);
   double get_score_of_generation() const;
 
-  void dump_current_population_to_image(const std::string &folder, uint generation = 0);
+  void dump_current_population_to_image(const std::string &folder, uint generation = 0, bool bw = false);
   void evolve(const int maxGenerationCount, const bool multiThreaded, const int threadCount = 12, const bool saveImages = false, const std::string &folder = "");
 
   ~CellularGrid();

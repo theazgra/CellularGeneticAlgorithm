@@ -38,6 +38,11 @@ inline void set_pixel(cimg_library::CImg<uchar> &img, const uint &row, const uin
     img(col, row, 2) = rgb.B;
 }
 
+inline void set_pixel(cimg_library::CImg<uchar> &img, const uint &row, const uint &col, const uchar &px)
+{
+    img(col, row, 0) = px;
+}
+
 inline RgbPixel get_pixel(cimg_library::CImg<uchar> &img, const uint &row, const uint &col)
 {
     RgbPixel rgb;
