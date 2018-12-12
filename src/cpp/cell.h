@@ -1,5 +1,13 @@
+#pragma once
+#include "point.h"
+#include <assert.h>
+
+typedef unsigned int uint;
 typedef unsigned char uchar;
-#define UCHAR_MAX 255
+
+constexpr int UCHAR_MAX_AS_INT = 255;
+constexpr double UCHAR_MAX = 255.0;
+constexpr double MAX_FITNESS_VALUE = 3.0 * UCHAR_MAX;
 
 struct Cell
 {
@@ -7,18 +15,40 @@ struct Cell
     uchar G;
     uchar B;
 
-    float get_fitness() const
+    bool isEmpty;
+    Point cellLocation;
+    Point cellToReplaceLocation;
+
+    Cell()
     {
-        return ((float)R + (float)G + (float)B);
+        isEmpty = true;
     }
 
-    float get_selection_probability() const
+    Cell(Point location)
     {
-        return get_fitness() / 3.0f * (float)UCHAR_MAX;
+        isEmpty = false;
+        cellLocation = location;
+        R = 0;
+        G = 0;
+        B = 0;
     }
 
-    float get_target() const
+    Cell(Point location, const uchar r, const uchar g, const uchar b)
     {
-        return ((3.0f * (float)UCHAR_MAX) - get_fitness());
+        isEmpty = false;
+        cellLocation = location;
+        R = r;
+        G = g;
+        B = b;
+    }
+
+    double get_fitness() const
+    {
+        return ((double)R + (double)G + (double)B);
+    }
+
+    double get_objective() const
+    {
+        return (MAX_FITNESS_VALUE - get_fitness());
     }
 };

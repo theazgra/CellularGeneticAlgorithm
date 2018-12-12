@@ -4,6 +4,7 @@ project(cellular-ga VERSION 0.1.0)
 include(CTest)
 enable_testing()
 
+
 add_executable(cellular-ga main.cpp)
 
 
