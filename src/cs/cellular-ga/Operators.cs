@@ -87,6 +87,9 @@ namespace cellular_ga
             int indexA = randomSelection.GetRandomIndexBasedOnWeights();
             int indexB = randomSelection.GetRandomIndexBasedOnWeights();
 
+            while(indexB == indexA)
+                indexB = randomSelection.GetRandomIndexBasedOnWeights();
+
             Tuple<Cell, Cell> result = new Tuple<Cell, Cell>(neighborhood.ElementAt(indexA), neighborhood.ElementAt(indexB));
             return result;
         }
