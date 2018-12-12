@@ -148,12 +148,10 @@ std::pair<Cell, Cell> select_parents(const std::vector<Cell> &neighborhood)
 
     std::discrete_distribution<int> discreteDistribution = std::discrete_distribution<int>(std::begin(weights), std::end(weights));
     int indexA = discreteDistribution(randomGenerator);
-
-    weights.erase(weights.begin() + indexA);
-    neighCopy.erase(neighCopy.begin() + indexA);
-    discreteDistribution = std::discrete_distribution<int>(std::begin(weights), std::end(weights));
-
     int indexB = discreteDistribution(randomGenerator);
+    
+    while (indexA == indexB)
+        indexB = discreteDistribution(randomGenerator);
 
     auto result = std::make_pair(neighCopy[indexA], neighCopy[indexB]);
     return result;
