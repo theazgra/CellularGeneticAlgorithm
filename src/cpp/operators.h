@@ -133,8 +133,6 @@ Cell reproduction(int x, int y, std::pair<Cell, Cell> parents, int randomValue)
 
 std::pair<Cell, Cell> select_parents(const std::vector<Cell> &neighborhood)
 {
-    std::vector<Cell> neighCopy = std::vector<Cell>(neighborhood);
-
     std::random_device randomDevice;
     std::mt19937 randomGenerator(randomDevice());
 
@@ -148,13 +146,13 @@ std::pair<Cell, Cell> select_parents(const std::vector<Cell> &neighborhood)
 
     std::discrete_distribution<int> discreteDistribution = std::discrete_distribution<int>(std::begin(weights), std::end(weights));
     int indexA = discreteDistribution(randomGenerator);
-
-    weights.erase(weights.begin() + indexA);
-    neighCopy.erase(neighCopy.begin() + indexA);
-    discreteDistribution = std::discrete_distribution<int>(std::begin(weights), std::end(weights));
-
     int indexB = discreteDistribution(randomGenerator);
 
-    auto result = std::make_pair(neighCopy[indexA], neighCopy[indexB]);
+    while (indexA == indexB)
+    {
+        indexB = discreteDistribution(randomGenerator);
+    }
+
+    auto result = std::make_pair(neighborhood[indexA], neighborhood[indexB]);
     return result;
 }
