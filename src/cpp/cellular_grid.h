@@ -23,6 +23,7 @@ private:
   Cell &at(uint row, uint col);
   void synchronous_evolution_step();
   void multithreaded_evolution_step(const int threadCount);
+  void openmp_evolution_step(const int threadCount);
   std::vector<Cell> get_neighborhood(const uint row, const uint col);
   void worker_job(int rowFrom, int rowTo, std::vector<Cell> &result);
 

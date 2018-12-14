@@ -10,17 +10,19 @@ inline int mod(const int x, const int mod)
 
 Cell get_worst_cell(const std::vector<Cell> &neighborhood)
 {
-    Cell worst;
-    double worstFitness = MAX_FITNESS_VALUE;
+    Cell worst = Cell(Point(-1, -1));
+    worst.R = 255;
+    worst.G = 255;
+    worst.B = 255;
 
     for (size_t i = 0; i < neighborhood.size(); i++)
     {
-        if (neighborhood[i].get_fitness() < worstFitness)
+        if (neighborhood[i].get_fitness() <= worst.get_fitness())
         {
             worst = neighborhood[i];
-            worstFitness = neighborhood[i].get_fitness();
         }
     }
+    assert(worst.cellLocation.x != -1 && worst.cellLocation.y != -1);
     return worst;
 }
 

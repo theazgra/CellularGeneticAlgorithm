@@ -2,9 +2,9 @@
 
 int main(int, char **)
 {
-    CellularGrid cg(1000);
-    cg.initialize(NeighborhoodType::L9, PopulationMergeType::ReplaceWorstInNeighborhood);
+    CellularGrid cg(200);
+    cg.initialize(NeighborhoodType::C9, PopulationMergeType::ReplaceWorstInNeighborhood);
 
-    cg.evolve(100, true, 12, true, "bw");
+    cg.evolve(100, true, 12, false, "bw");
     return 0;
 }
