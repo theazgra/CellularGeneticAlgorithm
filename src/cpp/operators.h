@@ -37,17 +37,19 @@ std::vector<Cell> replace(int rowCount, int colCount, std::vector<Cell> &current
     case ReplaceWorstInNeighborhood:
     case ReplaceOneParent:
     {
+#pragma omp parallel for
         for (int row = 0; row < rowCount; row++)
         {
             for (int col = 0; col < colCount; col++)
             {
-
                 Cell offspring = newPopulation[(row * colCount) + col];
-
                 Point toReplaceLocation = offspring.cellToReplaceLocation;
                 offspring.cellLocation = toReplaceLocation;
 
-                currentPopulation[(toReplaceLocation.y * colCount) + toReplaceLocation.x] = offspring;
+#pragma omp critical
+                {
+                    currentPopulation[(toReplaceLocation.y * colCount) + toReplaceLocation.x] = offspring;
+                }
             }
         }
         return currentPopulation;
