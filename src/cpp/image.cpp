@@ -55,11 +55,13 @@ inline RgbPixel get_pixel(cimg_library::CImg<uchar> &img, const uint &row, const
 cimg_library::CImg<uchar> create_grayscale_image(const uint width, const uint height)
 {
     cimg_library::CImg<uchar> image(width, height, 1, 1);
+    image.fill(0);
     return image;
 }
 
 cimg_library::CImg<uchar> create_color_image(const uint width, const uint height)
 {
     cimg_library::CImg<uchar> image(width, height, 1, 3);
+    image.fill(0);
     return image;
 }

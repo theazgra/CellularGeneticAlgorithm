@@ -31,7 +31,7 @@ public:
   CellularGrid(const uint dimension);
   CellularGrid(const uint width, const uint height);
 
-  void initialize(const NeighborhoodType neighborhoodType, const PopulationMergeType mergeMethod);
+  void initialize(const NeighborhoodType neighborhoodType, const PopulationMergeType mergeMethod, const InitializationType initType);
   double get_score_of_generation() const;
 
   void dump_current_population_to_image(const std::string &folder, uint generation = 0, bool bw = false);

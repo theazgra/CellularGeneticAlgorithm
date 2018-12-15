@@ -24,7 +24,7 @@ CellularGrid::~CellularGrid()
     currentPopulation.shrink_to_fit();
 }
 
-void CellularGrid::initialize(const NeighborhoodType neighborhoodType, const PopulationMergeType mergeMethod)
+void CellularGrid::initialize(const NeighborhoodType neighborhoodType, const PopulationMergeType mergeMethod, const InitializationType initType)
 {
     this->neighborhoodMethod = neighborhoodType;
     this->mergeMethod = mergeMethod;
@@ -36,25 +36,80 @@ void CellularGrid::initialize(const NeighborhoodType neighborhoodType, const Pop
     std::mt19937 gen(rd());
     std::uniform_int_distribution<int> dis(0, 255); // Both ranges are inclusive.
 
-    uchar r, g, b;
-    int index = 0;
-    uchar discrimination;
-    for (uint row = 0; row < rowCount; row++)
+    uchar r, g, b, discrimination;
+    switch (initType)
     {
-        for (uint col = 0; col < colCount; col++)
+    case RandomWithDiscrimination:
+    {
+        for (uint row = 0; row < rowCount; row++)
         {
+            for (uint col = 0; col < colCount; col++)
+            {
 
-            discrimination = (uchar)((row * col) % UCHAR_MAX_AS_INT);
-            r = (uchar)dis(gen);
-            g = (uchar)dis(gen);
-            b = (uchar)dis(gen);
+                discrimination = (uchar)((row * col) % UCHAR_MAX_AS_INT);
+                r = (uchar)dis(gen);
+                g = (uchar)dis(gen);
+                b = (uchar)dis(gen);
 
-            r = (r > discrimination) ? (uchar)(r - discrimination) : r;
-            g = (g > discrimination) ? (uchar)(g - discrimination) : g;
-            b = (b > discrimination) ? (uchar)(b - discrimination) : b;
+                r = (r > discrimination) ? (uchar)(r - discrimination) : r;
+                g = (g > discrimination) ? (uchar)(g - discrimination) : g;
+                b = (b > discrimination) ? (uchar)(b - discrimination) : b;
 
-            currentPopulation.push_back(Cell(Point(col, row), r, g, b));
+                currentPopulation.push_back(Cell(Point(col, row), r, g, b));
+            }
         }
+    }
+    break;
+    case FitBorders:
+    {
+        uint borderSize = rowCount / 15;
+
+        for (uint row = 0; row < rowCount; row++)
+        {
+            for (uint col = 0; col < colCount; col++)
+            {
+                r = (uchar)dis(gen);
+                g = (uchar)dis(gen);
+                b = (uchar)dis(gen);
+
+                if ((row < borderSize) || (col < borderSize) || (row > (rowCount - borderSize)) || (col > (colCount - borderSize)))
+                {
+                    currentPopulation.push_back(Cell(Point(col, row), r, g, b));
+                }
+                else
+                {
+                    currentPopulation.push_back(Cell(Point(col, row), 1, 1, 1));
+                }
+            }
+        }
+    }
+    break;
+    case FitCorner:
+    {
+        uint borderSize = rowCount / 10;
+
+        for (uint row = 0; row < rowCount; row++)
+        {
+            for (uint col = 0; col < colCount; col++)
+            {
+                r = (uchar)dis(gen);
+                g = (uchar)dis(gen);
+                b = (uchar)dis(gen);
+
+                if ((row < borderSize) && (col < borderSize))
+                {
+                    currentPopulation.push_back(Cell(Point(col, row), r, g, b));
+                }
+                else
+                {
+                    currentPopulation.push_back(Cell(Point(col, row), 1, 1, 1));
+                }
+            }
+        }
+    }
+    break;
+    default:
+        assert(false && "Wrong initialization type.");
     }
 }
 
@@ -86,7 +141,7 @@ void CellularGrid::dump_current_population_to_image(const std::string &folder, u
             Cell cell = at(row, col);
             if (bw)
             {
-                uchar normalized = (uchar)(float((int)cell.R + (int)cell.G + (int)cell.B) / 255.0);
+                uchar normalized = (uchar)((cell.get_fitness() / MAX_FITNESS_VALUE) * 255.0f);
                 set_pixel(gridImage, row, col, normalized);
             }
             else
@@ -123,7 +178,7 @@ void CellularGrid::evolve(const int maxGenerationCount, const bool multiThreaded
         printf("Completed generation %i; Score: %f; Iteration time %f ms\n", generation, generationScore, time);
 
         if (saveImages)
-            dump_current_population_to_image(folder, generation);
+            dump_current_population_to_image(folder, generation, true);
 
         if (generationScore == 1.0)
         {

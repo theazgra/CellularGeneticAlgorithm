@@ -13,3 +13,10 @@ enum NeighborhoodType
     C9,
     C13
 };
+
+enum InitializationType
+{
+    RandomWithDiscrimination,
+    FitBorders,
+    FitCorner
+};
