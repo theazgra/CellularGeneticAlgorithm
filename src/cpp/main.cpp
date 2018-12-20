@@ -2,10 +2,14 @@
 
 int main(int, char **)
 {
-    CellularGrid cg(300);
-    cg.initialize(NeighborhoodType::L5, PopulationMergeType::ReplaceAll, InitializationType::FitCorner);
-    //cg.dump_current_population_to_image("bw", 0, true);
-    cg.evolve(1000, true, 12, true, "bw");
+    const uint MaxIterationCount = 1000;
+    const bool Parallel = true;
+    const bool saveImages = false;
+    const uint ThreadCount = 12;
+
+    CellularGrid cg(500);
+    cg.initialize(NeighborhoodType::L5, PopulationMergeType::ReplaceAll, InitializationType::RandomWithDiscrimination);
+    cg.evolve(MaxIterationCount, Parallel, ThreadCount, saveImages, "bw");
 
     return 0;
 }

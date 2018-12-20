@@ -28,24 +28,25 @@ void CellularGrid::initialize(const NeighborhoodType neighborhoodType, const Pop
 {
     this->neighborhoodMethod = neighborhoodType;
     this->mergeMethod = mergeMethod;
-
     currentPopulation = std::vector<Cell>();
-    currentPopulation.reserve(rowCount * colCount);
+    currentPopulation.resize(rowCount * colCount);
 
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<int> dis(0, 255); // Both ranges are inclusive.
 
     uchar r, g, b, discrimination;
+    Cell newCell;
+    uint index;
     switch (initType)
     {
     case RandomWithDiscrimination:
     {
+#pragma omp parallel for private(r, g, b, discrimination)
         for (uint row = 0; row < rowCount; row++)
         {
             for (uint col = 0; col < colCount; col++)
             {
-
                 discrimination = (uchar)((row * col) % UCHAR_MAX_AS_INT);
                 r = (uchar)dis(gen);
                 g = (uchar)dis(gen);
@@ -55,7 +56,10 @@ void CellularGrid::initialize(const NeighborhoodType neighborhoodType, const Pop
                 g = (g > discrimination) ? (uchar)(g - discrimination) : g;
                 b = (b > discrimination) ? (uchar)(b - discrimination) : b;
 
-                currentPopulation.push_back(Cell(Point(col, row), r, g, b));
+#pragma omp critical
+                {
+                    currentPopulation[(row * colCount) + col] = Cell(Point(col, row), r, g, b);
+                }
             }
         }
     }
@@ -64,6 +68,7 @@ void CellularGrid::initialize(const NeighborhoodType neighborhoodType, const Pop
     {
         uint borderSize = rowCount / 15;
 
+#pragma omp parallel for private(r, g, b, newCell)
         for (uint row = 0; row < rowCount; row++)
         {
             for (uint col = 0; col < colCount; col++)
@@ -74,11 +79,16 @@ void CellularGrid::initialize(const NeighborhoodType neighborhoodType, const Pop
 
                 if ((row < borderSize) || (col < borderSize) || (row > (rowCount - borderSize)) || (col > (colCount - borderSize)))
                 {
-                    currentPopulation.push_back(Cell(Point(col, row), r, g, b));
+                    newCell = Cell(Point(col, row), r, g, b);
                 }
                 else
                 {
-                    currentPopulation.push_back(Cell(Point(col, row), 1, 1, 1));
+                    newCell = Cell(Point(col, row), 1, 1, 1);
+                }
+
+#pragma omp critical
+                {
+                    currentPopulation[(row * colCount) + col] = newCell;
                 }
             }
         }
@@ -88,6 +98,7 @@ void CellularGrid::initialize(const NeighborhoodType neighborhoodType, const Pop
     {
         uint borderSize = rowCount / 10;
 
+#pragma omp parallel for private(r, g, b, newCell)
         for (uint row = 0; row < rowCount; row++)
         {
             for (uint col = 0; col < colCount; col++)
@@ -98,11 +109,15 @@ void CellularGrid::initialize(const NeighborhoodType neighborhoodType, const Pop
 
                 if ((row < borderSize) && (col < borderSize))
                 {
-                    currentPopulation.push_back(Cell(Point(col, row), r, g, b));
+                    newCell = Cell(Point(col, row), r, g, b);
                 }
                 else
                 {
-                    currentPopulation.push_back(Cell(Point(col, row), 1, 1, 1));
+                    newCell = Cell(Point(col, row), 1, 1, 1);
+                }
+#pragma omp critical
+                {
+                    currentPopulation[(row * colCount) + col] = newCell;
                 }
             }
         }

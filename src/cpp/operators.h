@@ -2,6 +2,7 @@
 #include "enums.h"
 #include <vector>
 #include <random>
+#include <omp.h>
 
 inline int mod(const int x, const int mod)
 {
