@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Drawing.Imaging;
-using System.Diagnostics;
-using System.IO;
+﻿using System.Threading.Tasks;
 
 namespace cellular_ga
 {
@@ -15,13 +8,14 @@ namespace cellular_ga
         {
             const bool SaveDebugImages = false;
 
-            CellularGrid grid = new CellularGrid(1000);
+            CellularGrid grid = new CellularGrid(2000);
             grid.NeighborhoodSelectionMethod = NeighborhoodType.L5;
             grid.ReplaceMethod = ReplaceType.ReplaceWorstInNeighbourhood;
             grid.Initialize();
 
             //grid.Evolve(200, true);
-            await grid.MultiThreadedEvolve(200);
+            await grid.MultiThreadedEvolve(1000, false, 12);
+            //grid.Evolve(1000, true);
         }
     }
 }

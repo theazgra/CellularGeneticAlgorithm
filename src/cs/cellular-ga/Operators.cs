@@ -68,6 +68,37 @@ namespace cellular_ga
             }
         }
 
+        public static Cell[] SpecialReplaceRow(int row, int colCount, Cell[] currentPopulation, Cell[] newPopulation, ReplaceType replaceType)
+        {
+            switch (replaceType)
+            {
+                case ReplaceType.ReplaceAll:
+                    {
+                        for (int col = 0; col < colCount; col++)
+                        {
+                            SetAtGrid(currentPopulation, row, col, colCount, GetAtGrid(newPopulation, 0, col, colCount));
+                        }
+                        return currentPopulation;
+                    }
+                case ReplaceType.ReplaceWorstInNeighbourhood:
+                case ReplaceType.ReplaceOneParent:
+                    {
+                        for (int col = 0; col < colCount; col++)
+                        {
+                            Cell offSpring = GetAtGrid(newPopulation, 0, col, colCount);
+                            Point toReplace = offSpring.ToReplace;
+
+                            offSpring.Location = toReplace;
+                            SetAtGrid(currentPopulation, toReplace.Y, toReplace.X, colCount, offSpring);
+                        }
+
+                        return currentPopulation;
+                    }
+                default:
+                    throw new Exception("BAD REPLACE TYPE.");
+            }
+        }
+
         private static Cell GetAtGrid(Cell[] grid, int row, int col, int colCount)
         {
             return grid[(row * colCount) + col];

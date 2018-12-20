@@ -7,6 +7,7 @@ using aMaze_ingSolver;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using Troschuetz.Random.Generators;
+using System.Threading;
 
 namespace cellular_ga
 {
@@ -73,14 +74,34 @@ namespace cellular_ga
         {
             _currentPopulation = new Cell[RowCount * ColCount];
 
-            int rowHalf = RowCount / 2;
-            int colHalf = ColCount / 2;
-
+            //for (int row = 0; row < RowCount; row++)
+            //{
+            //    for (int col = 0; col < ColCount; col++)
+            //    {
+            //        SetAt(row, col, Cell.GenerateRandomCell(col, row, (byte)((row * col) % byte.MaxValue)));
+            //    }
+            //}
+            byte r, g, b;
+            int borderSize = RowCount / 5;
+            Random rand = new Random();
+            Cell newCell;
             for (int row = 0; row < RowCount; row++)
             {
                 for (int col = 0; col < ColCount; col++)
                 {
-                    SetAt(row, col, Cell.GenerateRandomCell(col, row, (byte)((row * col) % byte.MaxValue)));
+                    r = (byte)rand.Next(0, 256);
+                    g = (byte)rand.Next(0, 256);
+                    b = (byte)rand.Next(0, 256);
+
+                    if ((row < borderSize) && (col < borderSize))
+                    {
+                        newCell = new Cell(new Point(col, row)) { R = r, G = g, B = b };
+                    }
+                    else
+                    {
+                        newCell = new Cell(new Point(col, row)) { R = 1, G = 1, B = 1 };
+                    }
+                    SetAt(row, col, newCell);
                 }
             }
         }
@@ -115,6 +136,7 @@ namespace cellular_ga
                 if (generationScore == 1.0)
                 {
                     Console.WriteLine("Reached our objective.");
+                    break;
                 }
             }
         }
@@ -153,7 +175,7 @@ namespace cellular_ga
             _currentPopulation = Operators.Replace(RowCount, ColCount, _currentPopulation, newPopulation, ReplaceMethod);
         }
 
-        public async Task MultiThreadedEvolve(int maxGenerationCount, int? threadCount = null)
+        public async Task MultiThreadedEvolve(int maxGenerationCount, bool asynchronous = false, int? threadCount = null)
         {
             string format = "Generation: {0}; Score: {1}; Iteration time: {2} ms.";
 
@@ -165,16 +187,21 @@ namespace cellular_ga
             for (int generation = 1; generation <= maxGenerationCount; generation++)
             {
                 s.Start();
-                await MultiThreadEvolutionStep(threadCount);
+
+                if (asynchronous)
+                    await MultithreadedAsynchronousEvolutionStep(threadCount);
+                else
+                    await MultiThreadEvolutionStep(threadCount);
+
                 s.Stop();
 
-                for (int i = 0; i < _currentPopulation.Length; i++)
-                {
-                    if (_currentPopulation[i] == null)
-                    {
-                        Console.WriteLine($"{i} is null wtf");
-                    }
-                }
+                //for (int i = 0; i < _currentPopulation.Length; i++)
+                //{
+                //    if (_currentPopulation[i] == null)
+                //    {
+                //        Console.WriteLine($"{i} is null wtf");
+                //    }
+                //}
 
                 generationScore = GetScoreOfGeneration();
 
@@ -224,14 +251,10 @@ namespace cellular_ga
             return newPopulation;
         }
 
-        public async Task MultiThreadEvolutionStep(int? threadCount = null)
+        public async Task MultiThreadEvolutionStep(int? suggesterThreadCount = null)
         {
-            int workerCount = Environment.ProcessorCount;
-            if (threadCount.HasValue)
-                workerCount = threadCount.Value;
-
+            int workerCount = GetThreadCount(suggesterThreadCount);
             int workerRowCount = RowCount / workerCount;
-
 
             Task<Cell[]>[] workers = new Task<Cell[]>[workerCount];
             for (int workerId = 0; workerId < workerCount; workerId++)
@@ -255,39 +278,6 @@ namespace cellular_ga
                 offset += copyLen;
             }
             _currentPopulation = Operators.Replace(RowCount, ColCount, _currentPopulation, newPopulation, ReplaceMethod);
-        }
-
-        public void AsynchronousEvolutionStep()
-        {
-            Cell[] newPopulation = new Cell[RowCount * ColCount];
-
-            Cell cell;
-            IEnumerable<Cell> neighborhood;
-            Tuple<Cell, Cell> parents;
-            Cell offspring;
-            for (int row = 0; row < RowCount; row++)
-            {
-                for (int col = 0; col < ColCount; col++)
-                {
-                    cell = GetAt(row, col);
-                    neighborhood = GetNeighborhood(row, col, NeighborhoodSelectionMethod);
-
-                    parents = Operators.SelectParents(neighborhood);
-                    offspring = Operators.Reproduction(col, row, parents);
-
-                    if (ReplaceMethod == ReplaceType.ReplaceWorstInNeighbourhood)
-                    {
-                        offspring.ToReplace = neighborhood.First(n => n.GetFitness() == neighborhood.Min(x => x.GetFitness())).Location;
-                    }
-                    else if (ReplaceMethod == ReplaceType.ReplaceOneParent)
-                    {
-                        offspring.ToReplace = randomGenerator.NextBoolean() ? parents.Item1.Location : parents.Item2.Location;
-                    }
-
-                    SetAtGrid(newPopulation, row, col, offspring);
-                }
-                _currentPopulation = Operators.ReplaceRow(row, ColCount, _currentPopulation, newPopulation, ReplaceMethod);
-            }
         }
 
         public void DebugDumpGridToImage(string filename, System.Drawing.Imaging.ImageFormat format)
@@ -387,6 +377,117 @@ namespace cellular_ga
             }
 
             return neighborhood;
+        }
+
+        public void AsynchronousEvolutionStep()
+        {
+            Cell[] newPopulation = new Cell[RowCount * ColCount];
+
+            Cell cell;
+            IEnumerable<Cell> neighborhood;
+            Tuple<Cell, Cell> parents;
+            Cell offspring;
+            for (int row = 0; row < RowCount; row++)
+            {
+                for (int col = 0; col < ColCount; col++)
+                {
+                    cell = GetAt(row, col);
+                    neighborhood = GetNeighborhood(row, col, NeighborhoodSelectionMethod);
+
+                    parents = Operators.SelectParents(neighborhood);
+                    offspring = Operators.Reproduction(col, row, parents);
+
+                    if (ReplaceMethod == ReplaceType.ReplaceWorstInNeighbourhood)
+                    {
+                        offspring.ToReplace = neighborhood.First(n => n.GetFitness() == neighborhood.Min(x => x.GetFitness())).Location;
+                    }
+                    else if (ReplaceMethod == ReplaceType.ReplaceOneParent)
+                    {
+                        offspring.ToReplace = randomGenerator.NextBoolean() ? parents.Item1.Location : parents.Item2.Location;
+                    }
+
+                    SetAtGrid(newPopulation, row, col, offspring);
+                }
+                _currentPopulation = Operators.ReplaceRow(row, ColCount, _currentPopulation, newPopulation, ReplaceMethod);
+            }
+        }
+
+        private int GetThreadCount(int? suggested)
+        {
+            int result = suggested.HasValue ? suggested.Value : Environment.ProcessorCount;
+            return result;
+        }
+
+        public async Task MultithreadedAsynchronousEvolutionStep(int? suggestedThreadCount = null)
+        {
+            int workerCount = GetThreadCount(suggestedThreadCount);
+            int workerColCount = ColCount / workerCount;
+
+            Cell[] newPopulation = new Cell[RowCount * ColCount];
+
+            Cell[] newRow;
+            
+            int offset, copyLen;
+
+            Task<Cell[]>[] workers = new Task<Cell[]>[workerCount];
+            for (int row = 0; row < RowCount; row++)
+            {
+                for (int workerId = 0; workerId < workerCount; workerId++)
+                {
+                    int workerColFrom = workerId * workerColCount;
+                    int workerColTo = (workerId == workerCount - 1) ? ColCount : workerColFrom + workerColCount;
+
+
+                    workers[workerId] = Task<Cell[]>.Factory.StartNew(() => WorkerAsynchronousEvolutionStep(row, workerColFrom, workerColTo));
+                }
+
+                newRow = new Cell[ColCount];
+
+                var taskResult = await Task.WhenAll(workers);
+
+
+                offset = 0;
+                for (int workerId = 0; workerId < workerCount; workerId++)
+                {
+                    copyLen = taskResult[workerId].Length;
+                    Array.ConstrainedCopy(taskResult[workerId], 0, newRow, offset, copyLen);
+                    offset += copyLen;
+                }
+
+                _currentPopulation = Operators.SpecialReplaceRow(row, ColCount, _currentPopulation, newRow, ReplaceMethod);
+            }
+        }
+
+        private Cell[] WorkerAsynchronousEvolutionStep(int row, int colFrom, int colTo)
+        {
+            AbstractGenerator randomGenerator = new MT19937Generator();
+            Cell cell;
+            IEnumerable<Cell> neighborhood;
+            Tuple<Cell, Cell> parents;
+            Cell offspring;
+
+            int index = 0;
+            Cell[] result = new Cell[colTo - colFrom];
+
+            for (int col = colFrom; col < colTo; col++)
+            {
+                cell = GetAt(row, col);
+                neighborhood = GetNeighborhood(row, col, NeighborhoodSelectionMethod);
+
+                parents = Operators.SelectParents(neighborhood);
+                offspring = Operators.Reproduction(col, row, parents, randomGenerator);
+
+                if (ReplaceMethod == ReplaceType.ReplaceWorstInNeighbourhood)
+                {
+                    offspring.ToReplace = neighborhood.First(n => n.GetFitness() == neighborhood.Min(x => x.GetFitness())).Location;
+                }
+                else if (ReplaceMethod == ReplaceType.ReplaceOneParent)
+                {
+                    offspring.ToReplace = randomGenerator.NextBoolean() ? parents.Item1.Location : parents.Item2.Location;
+                }
+                result[index++] = offspring;
+            }
+            return result;
         }
     }
 }
