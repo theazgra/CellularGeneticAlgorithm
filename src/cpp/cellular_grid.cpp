@@ -1,5 +1,6 @@
 #include "cellular_grid.h"
 #include "image.cpp"
+#include <omp.h>
 
 Cell &CellularGrid::at(uint row, uint col)
 {
@@ -23,37 +24,107 @@ CellularGrid::~CellularGrid()
     currentPopulation.shrink_to_fit();
 }
 
-void CellularGrid::initialize(const NeighborhoodType neighborhoodType, const PopulationMergeType mergeMethod)
+void CellularGrid::initialize(const NeighborhoodType neighborhoodType, const PopulationMergeType mergeMethod, const InitializationType initType)
 {
     this->neighborhoodMethod = neighborhoodType;
     this->mergeMethod = mergeMethod;
-
     currentPopulation = std::vector<Cell>();
-    currentPopulation.reserve(rowCount * colCount);
+    currentPopulation.resize(rowCount * colCount);
 
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<int> dis(0, 255); // Both ranges are inclusive.
 
-    uchar r, g, b;
-    int index = 0;
-    uchar discrimination;
-    for (uint row = 0; row < rowCount; row++)
+    uchar r, g, b, discrimination;
+    Cell newCell;
+    uint index;
+    switch (initType)
     {
-        for (uint col = 0; col < colCount; col++)
+    case RandomWithDiscrimination:
+    {
+#pragma omp parallel for private(r, g, b, discrimination)
+        for (uint row = 0; row < rowCount; row++)
         {
+            for (uint col = 0; col < colCount; col++)
+            {
+                discrimination = (uchar)((row * col) % UCHAR_MAX_AS_INT);
+                r = (uchar)dis(gen);
+                g = (uchar)dis(gen);
+                b = (uchar)dis(gen);
 
-            discrimination = (uchar)((row * col) % UCHAR_MAX_AS_INT);
-            r = (uchar)dis(gen);
-            g = (uchar)dis(gen);
-            b = (uchar)dis(gen);
+                r = (r > discrimination) ? (uchar)(r - discrimination) : r;
+                g = (g > discrimination) ? (uchar)(g - discrimination) : g;
+                b = (b > discrimination) ? (uchar)(b - discrimination) : b;
 
-            r = (r > discrimination) ? (uchar)(r - discrimination) : r;
-            g = (g > discrimination) ? (uchar)(g - discrimination) : g;
-            b = (b > discrimination) ? (uchar)(b - discrimination) : b;
-
-            currentPopulation.push_back(Cell(Point(col, row), r, g, b));
+#pragma omp critical
+                {
+                    currentPopulation[(row * colCount) + col] = Cell(Point(col, row), r, g, b);
+                }
+            }
         }
+    }
+    break;
+    case FitBorders:
+    {
+        uint borderSize = rowCount / 15;
+
+#pragma omp parallel for private(r, g, b, newCell)
+        for (uint row = 0; row < rowCount; row++)
+        {
+            for (uint col = 0; col < colCount; col++)
+            {
+                r = (uchar)dis(gen);
+                g = (uchar)dis(gen);
+                b = (uchar)dis(gen);
+
+                if ((row < borderSize) || (col < borderSize) || (row > (rowCount - borderSize)) || (col > (colCount - borderSize)))
+                {
+                    newCell = Cell(Point(col, row), r, g, b);
+                }
+                else
+                {
+                    newCell = Cell(Point(col, row), 1, 1, 1);
+                }
+
+#pragma omp critical
+                {
+                    currentPopulation[(row * colCount) + col] = newCell;
+                }
+            }
+        }
+    }
+    break;
+    case FitCorner:
+    {
+        uint borderSize = rowCount / 10;
+
+#pragma omp parallel for private(r, g, b, newCell)
+        for (uint row = 0; row < rowCount; row++)
+        {
+            for (uint col = 0; col < colCount; col++)
+            {
+                r = (uchar)dis(gen);
+                g = (uchar)dis(gen);
+                b = (uchar)dis(gen);
+
+                if ((row < borderSize) && (col < borderSize))
+                {
+                    newCell = Cell(Point(col, row), r, g, b);
+                }
+                else
+                {
+                    newCell = Cell(Point(col, row), 1, 1, 1);
+                }
+#pragma omp critical
+                {
+                    currentPopulation[(row * colCount) + col] = newCell;
+                }
+            }
+        }
+    }
+    break;
+    default:
+        assert(false && "Wrong initialization type.");
     }
 }
 
@@ -70,16 +141,28 @@ double CellularGrid::get_score_of_generation() const
     return result;
 }
 
-void CellularGrid::dump_current_population_to_image(const std::string &folder, uint generation)
+void CellularGrid::dump_current_population_to_image(const std::string &folder, uint generation, bool bw)
 {
-    cimg_library::CImg<uchar> gridImage = create_color_image(colCount, rowCount);
+    cimg_library::CImg<uchar> gridImage;
+    if (bw)
+        gridImage = create_grayscale_image(colCount, rowCount);
+    else
+        gridImage = create_color_image(colCount, rowCount);
 
     for (uint row = 0; row < rowCount; row++)
     {
         for (uint col = 0; col < colCount; col++)
         {
             Cell cell = at(row, col);
-            set_pixel(gridImage, row, col, RgbPixel(cell.R, cell.G, cell.B));
+            if (bw)
+            {
+                uchar normalized = (uchar)((cell.get_fitness() / MAX_FITNESS_VALUE) * 255.0f);
+                set_pixel(gridImage, row, col, normalized);
+            }
+            else
+            {
+                set_pixel(gridImage, row, col, RgbPixel(cell.R, cell.G, cell.B));
+            }
         }
     }
 
@@ -99,7 +182,7 @@ void CellularGrid::evolve(const int maxGenerationCount, const bool multiThreaded
     {
         start_stopwatch(s);
         if (multiThreaded)
-            multithreaded_evolution_step(threadCount);
+            openmp_evolution_step(threadCount); //multithreaded_evolution_step(threadCount);
         else
             synchronous_evolution_step();
         stop_stopwatch(s);
@@ -110,7 +193,7 @@ void CellularGrid::evolve(const int maxGenerationCount, const bool multiThreaded
         printf("Completed generation %i; Score: %f; Iteration time %f ms\n", generation, generationScore, time);
 
         if (saveImages)
-            dump_current_population_to_image(folder, generation);
+            dump_current_population_to_image(folder, generation, true);
 
         if (generationScore == 1.0)
         {
@@ -161,7 +244,6 @@ std::vector<Cell> CellularGrid::get_neighborhood(const uint row, const uint col)
     case L5:
     {
         neighborhood.reserve(5);
-        //        std::lock_guard<std::mutex> lock(currentPopulationMutex);
 
         neighborhood.push_back(at(row, col));
 
@@ -170,6 +252,7 @@ std::vector<Cell> CellularGrid::get_neighborhood(const uint row, const uint col)
         neighborhood.push_back(at(row, mod(col + 1, colCount))); // Right
         neighborhood.push_back(at(mod(row + 1, rowCount), col)); // Bottom
 
+        assert(neighborhood.size() == 5);
         return neighborhood;
     }
     break;
@@ -177,8 +260,6 @@ std::vector<Cell> CellularGrid::get_neighborhood(const uint row, const uint col)
     {
         neighborhood.reserve(9);
 
-        //      std::lock_guard<std::mutex> lock(currentPopulationMutex);
-
         neighborhood.push_back(at(row, col));
         neighborhood.push_back(at(row, mod(col - 1, colCount))); // Left
         neighborhood.push_back(at(row, mod(col - 2, colCount))); // Left 2
@@ -189,20 +270,29 @@ std::vector<Cell> CellularGrid::get_neighborhood(const uint row, const uint col)
         neighborhood.push_back(at(mod(row + 1, rowCount), col)); // Bottom
         neighborhood.push_back(at(mod(row + 2, rowCount), col)); // Bottom 2
 
+        assert(neighborhood.size() == 9);
         return neighborhood;
     }
     break;
     case C9:
     {
         neighborhood.reserve(9);
-        //    std::lock_guard<std::mutex> lock(currentPopulationMutex);
-        for (int nRow = row - 1; nRow <= row + 1; nRow++)
+
+        // When this was calculated in for cycles, OpenMp didn't execute them.
+        int fromRow = row - 1;
+        int toRow = row + 2;
+        int fromCol = col - 1;
+        int toCol = col + 2;
+
+        for (int nRow = fromRow; nRow < toRow; nRow++)
         {
-            for (int nCol = col - 1; nCol <= col + 1; nCol++)
+            for (int nCol = fromCol; nCol < toCol; nCol++)
             {
                 neighborhood.push_back(at(mod(nRow, rowCount), mod(nCol, colCount)));
             }
         }
+
+        assert(neighborhood.size() == 9);
         return neighborhood;
     }
     break;
@@ -210,10 +300,15 @@ std::vector<Cell> CellularGrid::get_neighborhood(const uint row, const uint col)
     {
         neighborhood.reserve(13);
 
-        //  std::lock_guard<std::mutex> lock(currentPopulationMutex);
-        for (int nRow = row - 1; nRow <= row + 1; nRow++)
+        // When this was calculated in for cycles, OpenMp didn't execute them.
+        int fromRow = row - 1;
+        int toRow = row + 2;
+        int fromCol = col - 1;
+        int toCol = col + 2;
+
+        for (int nRow = fromRow; nRow < toRow; nRow++)
         {
-            for (int nCol = col - 1; nCol <= col + 1; nCol++)
+            for (int nCol = fromCol; nCol < toCol; nCol++)
             {
                 neighborhood.push_back(at(mod(nRow, rowCount), mod(nCol, colCount)));
             }
@@ -223,6 +318,7 @@ std::vector<Cell> CellularGrid::get_neighborhood(const uint row, const uint col)
         neighborhood.push_back(at(row, mod(col + 2, colCount))); // Right 2
         neighborhood.push_back(at(mod(row + 2, rowCount), col)); // Bottom 2
 
+        assert(neighborhood.size() == 13);
         return neighborhood;
     }
     break;
@@ -310,4 +406,58 @@ void CellularGrid::multithreaded_evolution_step(const int threadCount)
         //std::lock_guard<std::mutex> lock(currentPopulationMutex);
         currentPopulation = replace(rowCount, colCount, currentPopulation, newPopulation, mergeMethod);
     }
+}
+
+void print_point(const Point &p)
+{
+    printf("Cell: at [%i;%i]\n", p.x, p.y);
+}
+void print_neighborhood(const std::vector<Cell> &neigh)
+{
+    for (const Cell &n : neigh)
+    {
+        print_point(n.cellLocation);
+    }
+}
+
+void CellularGrid::openmp_evolution_step(const int threadCount)
+{
+    omp_set_num_threads(threadCount);
+
+    std::vector<Cell> newPopulation;
+    newPopulation.resize(rowCount * colCount);
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dis012(0, 2); // Both ranges are inclusive.
+    std::uniform_int_distribution<int> dis01(0, 1);  // Both ranges are inclusive.
+    int random;
+
+#pragma omp parallel for
+    for (uint row = 0; row < rowCount; row++)
+    {
+        for (uint col = 0; col < colCount; col++)
+        {
+            std::vector<Cell> neighborhood = get_neighborhood(row, col);
+            std::pair<Cell, Cell> parents = select_parents(neighborhood);
+            Cell offspring = reproduction(col, row, parents, dis012(gen));
+
+            if (mergeMethod == ReplaceWorstInNeighborhood)
+            {
+                offspring.cellToReplaceLocation = get_worst_cell(neighborhood).cellLocation;
+            }
+            else if (mergeMethod == ReplaceOneParent)
+            {
+                random = dis01(gen);
+                offspring.cellToReplaceLocation = (random == 0) ? parents.first.cellLocation : parents.second.cellLocation;
+            }
+
+#pragma omp critical
+            {
+                newPopulation[(row * colCount) + col] = offspring;
+            }
+        }
+    }
+
+    currentPopulation = replace(rowCount, colCount, currentPopulation, newPopulation, mergeMethod);
 }

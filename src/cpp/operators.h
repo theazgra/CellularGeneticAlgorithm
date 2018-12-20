@@ -2,6 +2,7 @@
 #include "enums.h"
 #include <vector>
 #include <random>
+#include <omp.h>
 
 inline int mod(const int x, const int mod)
 {
@@ -10,17 +11,19 @@ inline int mod(const int x, const int mod)
 
 Cell get_worst_cell(const std::vector<Cell> &neighborhood)
 {
-    Cell worst;
-    double worstFitness = MAX_FITNESS_VALUE;
+    Cell worst = Cell(Point(-1, -1));
+    worst.R = 255;
+    worst.G = 255;
+    worst.B = 255;
 
     for (size_t i = 0; i < neighborhood.size(); i++)
     {
-        if (neighborhood[i].get_fitness() < worstFitness)
+        if (neighborhood[i].get_fitness() <= worst.get_fitness())
         {
             worst = neighborhood[i];
-            worstFitness = neighborhood[i].get_fitness();
         }
     }
+    assert(worst.cellLocation.x != -1 && worst.cellLocation.y != -1);
     return worst;
 }
 
@@ -35,17 +38,19 @@ std::vector<Cell> replace(int rowCount, int colCount, std::vector<Cell> &current
     case ReplaceWorstInNeighborhood:
     case ReplaceOneParent:
     {
+#pragma omp parallel for
         for (int row = 0; row < rowCount; row++)
         {
             for (int col = 0; col < colCount; col++)
             {
-
                 Cell offspring = newPopulation[(row * colCount) + col];
-
                 Point toReplaceLocation = offspring.cellToReplaceLocation;
                 offspring.cellLocation = toReplaceLocation;
 
-                currentPopulation[(toReplaceLocation.y * colCount) + toReplaceLocation.x] = offspring;
+#pragma omp critical
+                {
+                    currentPopulation[(toReplaceLocation.y * colCount) + toReplaceLocation.x] = offspring;
+                }
             }
         }
         return currentPopulation;
@@ -133,8 +138,6 @@ Cell reproduction(int x, int y, std::pair<Cell, Cell> parents, int randomValue)
 
 std::pair<Cell, Cell> select_parents(const std::vector<Cell> &neighborhood)
 {
-    std::vector<Cell> neighCopy = std::vector<Cell>(neighborhood);
-
     std::random_device randomDevice;
     std::mt19937 randomGenerator(randomDevice());
 
@@ -149,10 +152,12 @@ std::pair<Cell, Cell> select_parents(const std::vector<Cell> &neighborhood)
     std::discrete_distribution<int> discreteDistribution = std::discrete_distribution<int>(std::begin(weights), std::end(weights));
     int indexA = discreteDistribution(randomGenerator);
     int indexB = discreteDistribution(randomGenerator);
-    
-    while (indexA == indexB)
-        indexB = discreteDistribution(randomGenerator);
 
-    auto result = std::make_pair(neighCopy[indexA], neighCopy[indexB]);
+    while (indexA == indexB)
+    {
+        indexB = discreteDistribution(randomGenerator);
+    }
+
+    auto result = std::make_pair(neighborhood[indexA], neighborhood[indexB]);
     return result;
 }
